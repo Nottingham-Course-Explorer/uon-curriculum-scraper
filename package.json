@@ -1,0 +1,17 @@
+{
+  "name": "uon-curriculum-scraper",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "scrape-modules.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cli-progress": "^3.12.0",
+    "puppeteer": "^22.7.0"
+  }
+}
