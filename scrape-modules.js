@@ -41,7 +41,7 @@ const M_EDU_AIMS_SEL = "#win0divUN_PLN_EXT2_WRK_HTMLAREA12 .ps-htmlarea";
 const M_ADD_REQUIREMENTS_SEL = "#win0divUN_PLN_EXT2_WRK_IB_REQSEND .ps-htmlarea";
 const M_CLASS_TABLE_SEL = "#win0divUN_PLN_EXT2_WRK_ACA_FREQ .ps_grid-cell:not(.ptgrid-rownumber)";
 const M_CLASS_INFO_SEL = "#win0divUN_PLN_EXT2_WRK_UN_ACTIVITY_INFO .ps-htmlarea"
-const M_ASSESS_TABLE_SEL = "#win0divUN_CRS_ASAI_TBL$grid$0 table tbody tr";
+const M_ASSESS_TABLE_SEL = "#win0divUN_CRS_ASAI_TBL\\$grid\\$0 .ps_grid-cell:not(.ptgrid-rownumber)";
 const M_ASSESS_INFO_SEL = "#win0divUN_PLN_EXT2_WRK_UN_DESCRFORMAL .ps-htmlarea";
 const M_LEARN_OUTCOMES_SEL = "#UN_PLN_EXT2_WRK_UN_LEARN_OUTCOME";
 
@@ -71,7 +71,7 @@ function moduleListURL(year, campus_code, school_code) {
 
 const moduleRowIDs = Object.fromEntries(UK_SCHOOL_CODES.map(x => [x, undefined]));
 
-const moduleCollectorTask = async ({page, data}) => {
+const indexModulesTask = async ({page, data}) => {
 	await page.goto(data.url);
 
 	moduleRowIDs[data.school_code] = await page.evaluate(() => {
@@ -82,17 +82,27 @@ const moduleCollectorTask = async ({page, data}) => {
 	data.totalBar.increment();
 }
 
-const scrapeModulesTask = async ({page, data}) => {
+const downloadModulesTask = async ({page, data}) => {
 	await page.goto(data.url);
 
-	const myBar = data.multiBar.create(data.myRowIDs.length, 0, undefined, undefined);
-	myBar.update(0, {title: data.school_code.padEnd(15)});
+	data.myBar = data.multiBar.create(data.myRowIDs.length, 0, undefined, undefined);
+	data.myBar.update(0, {title: data.school_code.padEnd(15)});
 
-	const selectAndEvaluate = async (selector, evaluator) => await (await page.waitForSelector(selector)).evaluate(evaluator);
-	const selectAllAndEvaluate = async (selector, evaluator) => await page.evaluate((selector) => {
+	const selectAndEvaluate = async (selector, evaluator) => {
+		try {
+			const el = await page.waitForSelector(selector);
+			return await el.evaluate(evaluator);
+		} catch (e) {
+			logger.warn(`Caught error: ${e.stack}`)
+			return "";
+		}
+	}
+	const selectTable = async (selector) => await page.evaluate((selector) => {
 		const elements = Array.from(document.querySelectorAll(selector));
-		return elements.map(el => evaluator(el));
-	})
+		return elements.map(
+			el => el.textContent.split(" ").map(e => e.trim()).join(" "))
+			.join("|");
+	}, selector);
 
 	const textContent = el => el.textContent.trim();
 	const commaSeparatedContent = el => el.textContent.split(",").map((e) => e.trim()).join(",");
@@ -101,7 +111,7 @@ const scrapeModulesTask = async ({page, data}) => {
 	for (const id of data.myRowIDs) {
 		const sel_stmt = db.prepare("SELECT COUNT(*) count FROM modules WHERE row_id_TEMP=?");
 		if (sel_stmt.get(data.school_code + id).count !== 0) {
-			myBar.increment();
+			data.myBar.increment();
 			modules++;
 			data.totalBar.update({modules: modules});
 			continue;
@@ -110,6 +120,7 @@ const scrapeModulesTask = async ({page, data}) => {
 		const rowSelector = `[id="${id}"]`;
 		await page.waitForSelector(rowSelector);
 		await page.click(rowSelector);
+		await page.setDefaultTimeout(15_000);
 
 		const module /** @type {Module} */ = {
 			Title: await selectAndEvaluate(M_TITLE_SEL, textContent),
@@ -123,34 +134,37 @@ const scrapeModulesTask = async ({page, data}) => {
 			TargetStudents: await selectAndEvaluate(M_TARGET_STUDENTS_SEL, textContent),
 
 			Summary: await selectAndEvaluate(M_SUMMARY_SEL, htmlContent),
-			EducationalAims: await selectAndEvaluate(M_EDU_AIMS_SEL, textContent),
+			EducationalAims: await selectAndEvaluate(M_EDU_AIMS_SEL, htmlContent),
 			AdditionalRequirements: await selectAndEvaluate(M_ADD_REQUIREMENTS_SEL, textContent),
-			Classes: await selectAllAndEvaluate(M_CLASS_TABLE_SEL, textContent),
+			Classes: await selectTable(M_CLASS_TABLE_SEL),
+			ClassesInfo: await selectAndEvaluate(M_CLASS_INFO_SEL, textContent),
+			Assessment: await selectTable(M_ASSESS_TABLE_SEL),
+			AssessmentInfo: await selectAndEvaluate(M_ASSESS_INFO_SEL),
+			LearningOutcomes: await selectAndEvaluate(M_LEARN_OUTCOMES_SEL, htmlContent),
 
 			CrawlURL: page.url(),
 			CrawlTime: moment().unix()
 		}
-		consola.info(module.Classes);
 
 		const stmt = db.prepare(`
             INSERT
             OR IGNORE
             INTO modules (code, title, year, credits, level, school, conveners, semesters,
-            			  summary, classes, target_students, educational_aims,
+            			  summary, classes, classes_info, assessment, assessment_info, target_students, educational_aims, additional_requirements, learning_outcomes,
                           crawl_url, crawl_time, row_id_TEMP)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
 		const info = stmt.run(module.Code, module.Title, module.Year, module.Credits, module.Level, module.School, module.Conveners, module.Semesters,
-			module.Summary, module.Classes.toString(), module.TargetStudents, module.EducationalAims,
+			module.Summary, module.Classes, module.ClassesInfo, module.Assessment, module.AssessmentInfo, module.TargetStudents, module.EducationalAims, module.AdditionalRequirements, module.LearningOutcomes,
 			module.CrawlURL, module.CrawlTime, data.school_code + id);
 		/*if (info.changes > 0) {*/
-		myBar.increment();
+		data.myBar.increment();
 		modules++;
 		data.totalBar.update({modules: modules});
 
 		await page.goBack();
 	}
-	data.multiBar.remove(myBar);
+	data.multiBar.remove(data.myBar);
 	data.totalBar.increment();
 }
 
@@ -188,7 +202,6 @@ let modules = 0;
 
 	let year = "2024";
 
-	console.log("");
 	consola.start(`Scraping with ${workers} workers...`);
 
 	const cluster = await Cluster.launch({
@@ -196,14 +209,15 @@ let modules = 0;
 	});
 
 	cluster.on('taskerror', (err, data, willRetry) => {
+		data.multiBar?.remove(data.myBar);
 		if (willRetry) {
-			consola.warn(`Encountered an error while crawling ${data}. ${err.message}\nThis job will be retried`);
+			logger.warn(`Encountered an error while crawling ${data.url}: ${err.stack}`);
 		} else {
-			consola.error(`Failed to crawl ${data}: ${err.message}. ${err.stack}`);
+			logger.error(`Failed to crawl ${data.school_code}: ${err.stack}`);
 		}
 	});
 
-	consola.start("Scraping schools...");
+	consola.start("Indexing modules...");
 
 	const collectionTotalBar = new cliProgress.SingleBar({
 		format: "  {bar} | {value}/{total} schools"
@@ -213,7 +227,7 @@ let modules = 0;
 	for (const school_code of shuffleArray(UK_SCHOOL_CODES)) {
 		await cluster.queue({
 			url: moduleListURL(year, campus_code, school_code), totalBar: collectionTotalBar, school_code: school_code
-		}, moduleCollectorTask)
+		}, indexModulesTask)
 	}
 
 	await cluster.idle();
@@ -221,7 +235,7 @@ let modules = 0;
 	const totalModules = UK_SCHOOL_CODES.reduce((partialSum, a) => partialSum + moduleRowIDs[a].length, 0);
 
 	collectionTotalBar.stop();
-	consola.start("Scraping modules...");
+	consola.start("Downloading modules...");
 
 	const multiBar = new cliProgress.MultiBar({
 		hideCursor: true, forceRedraw: true, autoPadding: true, format: "  {bar} │ {title} │ {value}/{total} modules"
@@ -239,7 +253,7 @@ let modules = 0;
 				totalBar: totalBar,
 				school_code: school_code,
 				myRowIDs: myModuleRowIds.slice(range[0], range[1] + 1)
-			}, scrapeModulesTask);
+			}, downloadModulesTask);
 		}
 	}
 

@@ -18,5 +18,8 @@
     "pino": "^9.0.0",
     "puppeteer": "^22.7.0",
     "puppeteer-cluster-ntaulbut": "^0.24.1"
+  },
+  "devDependencies": {
+    "pino-dev": "^4.0.3"
   }
 }
