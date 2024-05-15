@@ -2,7 +2,6 @@ import Database from "better-sqlite3";
 import {Cluster} from "puppeteer-cluster-ntaulbut";
 import {consola} from "consola";
 import cliProgress from "cli-progress";
-import {UK_SCHOOL_CODES} from "./info.js";
 import moment from "moment";
 import pino from "pino";
 
@@ -45,23 +44,17 @@ const M_ASSESS_TABLE_SEL = "#win0divUN_CRS_ASAI_TBL\\$grid\\$0 .ps_grid-cell:not
 const M_ASSESS_INFO_SEL = "#win0divUN_PLN_EXT2_WRK_UN_DESCRFORMAL .ps-htmlarea";
 const M_LEARN_OUTCOMES_SEL = "#UN_PLN_EXT2_WRK_UN_LEARN_OUTCOME";
 
-const db = new Database("./modules.db");
+const db = new Database(process.env.UON_MODULES_DB);
 db.pragma("journal_mode = WAL");
-
 
 const transport = pino.transport({
 	target: "pino/file",
-	options: {destination: ".scrape-log"}
+	options: {destination: ".log"}
 });
 const logger = pino(transport);
 
-
-function shuffleArray(array) {
-	for (let i = array.length - 1; i > 0; i--) {
-		const j = Math.floor(Math.random() * (i + 1));
-		[array[i], array[j]] = [array[j], array[i]];
-	}
-	return array;
+function campusURL(campus_code) {
+	return `https://campus.nottingham.ac.uk/psc/csprd_pub/EMPLOYEE/HRMS/c/UN_PROG_AND_MOD_EXTRACT.UN_PLN_EXTRT_FL_CP.GBL?PAGE=UN_PLN_EXT1_FPG&CAMPUS=${campus_code}&TYPE=Module`;
 }
 
 function moduleListURL(year, campus_code, school_code) {
@@ -69,7 +62,20 @@ function moduleListURL(year, campus_code, school_code) {
 	return `https://campus.nottingham.ac.uk/psc/csprd_pub/EMPLOYEE/HRMS/c/UN_PROG_AND_MOD_EXTRACT.UN_PLN_EXTRT_FL_CP.GBL?PAGE=UN_CRS_EXT2_FPG&CAMPUS=${campus_code}&TYPE=Module&YEAR=${year}&TITLE=${title_search}&SCHOOL=${school_code}`;
 }
 
-const moduleRowIDs = Object.fromEntries(UK_SCHOOL_CODES.map(x => [x, undefined]));
+let school_codes = [];
+
+const indexSchoolsTask = async ({page, data: url}) => {
+	await page.goto(url);
+
+	school_codes = await page.evaluate(() => {
+		const elements = Array.from(document.querySelectorAll("#UN_PLN_EXRT_WRK_DESCRFORMAL option"));
+		return elements.map(element => element.value);
+	})
+
+	school_codes = school_codes.filter(text => text !== "");
+}
+
+let moduleRowIDs = {};
 
 const indexModulesTask = async ({page, data}) => {
 	await page.goto(data.url);
@@ -151,12 +157,12 @@ const downloadModulesTask = async ({page, data}) => {
             OR IGNORE
             INTO modules (code, title, year, credits, level, school, conveners, semesters,
             			  summary, classes, classes_info, assessment, assessment_info, target_students, educational_aims, additional_requirements, learning_outcomes,
-                          crawl_url, crawl_time, row_id_TEMP)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          crawl_url, crawl_time, campus, row_id_TEMP)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
 		const info = stmt.run(module.Code, module.Title, module.Year, module.Credits, module.Level, module.School, module.Conveners, module.Semesters,
 			module.Summary, module.Classes, module.ClassesInfo, module.Assessment, module.AssessmentInfo, module.TargetStudents, module.EducationalAims, module.AdditionalRequirements, module.LearningOutcomes,
-			module.CrawlURL, module.CrawlTime, data.school_code + id);
+			module.CrawlURL, module.CrawlTime, data.campus, data.school_code + id);
 		/*if (info.changes > 0) {*/
 		data.myBar.increment();
 		modules++;
@@ -193,58 +199,62 @@ const HALF_HOUR_IN_MILLISECONDS = 1_800_000;
 let modules = 0;
 
 (async () => {
+	consola.info(`Using database ${process.env.UON_MODULES_DB}`);
 	const workers = await consola.prompt("Number of workers:", {type: "text"});
-
-	const campus_code = await consola.prompt("Campus:", {
-		type: "select",
-		options: [{label: "Nottingham", value: "U"}, {label: "China", value: "C"}, {label: "Malaysia", value: "M"}]
-	});
-
-	let year = "2024";
-
 	consola.start(`Scraping with ${workers} workers...`);
+
+	const campus = await consola.prompt("Campus:", {
+		type: "select",
+		options: ["Nottingham", "China", "Malaysia"]
+	});
+	const campus_code = {
+		"Nottingham": "U",
+		"China": "C",
+		"Malaysia": "M"
+	}[campus];
+	const campus_url = campusURL(campus_code);
+	let year = "2024";
 
 	const cluster = await Cluster.launch({
 		concurrency: Cluster.CONCURRENCY_CONTEXT, maxConcurrency: parseInt(workers), timeout: HALF_HOUR_IN_MILLISECONDS
 	});
-
 	cluster.on('taskerror', (err, data, willRetry) => {
 		data.multiBar?.remove(data.myBar);
 		if (willRetry) {
 			logger.warn(`Encountered an error while crawling ${data.url}: ${err.stack}`);
 		} else {
-			logger.error(`Failed to crawl ${data.school_code}: ${err.stack}`);
+			logger.error(`Failed to crawl ${data.url}: ${err.stack}`);
 		}
 	});
 
-	consola.start("Indexing modules...");
+	consola.start("Indexing schools...");
+	await cluster.queue(campus_url, indexSchoolsTask);
+	moduleRowIDs = Object.fromEntries(school_codes.map(x => [x, undefined]));
+	await cluster.idle();
 
+	consola.start("Indexing modules...");
 	const collectionTotalBar = new cliProgress.SingleBar({
 		format: "  {bar} | {value}/{total} schools"
 	}, cliProgress.Presets.shades_classic);
-	collectionTotalBar.start(UK_SCHOOL_CODES.length, 0);
-
-	for (const school_code of shuffleArray(UK_SCHOOL_CODES)) {
+	collectionTotalBar.start(school_codes.length, 0);
+	for (const school_code of school_codes) {
 		await cluster.queue({
 			url: moduleListURL(year, campus_code, school_code), totalBar: collectionTotalBar, school_code: school_code
 		}, indexModulesTask)
 	}
-
 	await cluster.idle();
-
-	const totalModules = UK_SCHOOL_CODES.reduce((partialSum, a) => partialSum + moduleRowIDs[a].length, 0);
-
 	collectionTotalBar.stop();
-	consola.start("Downloading modules...");
 
+	const totalModules = school_codes.reduce((partialSum, a) => partialSum + moduleRowIDs[a].length, 0);
+	consola.start("Downloading modules...");
 	const multiBar = new cliProgress.MultiBar({
 		hideCursor: true, forceRedraw: true, autoPadding: true, format: "  {bar} │ {title} │ {value}/{total} modules"
 	}, cliProgress.Presets.shades_classic);
-	const totalBar = multiBar.create(UK_SCHOOL_CODES.length, 0, {total_modules: totalModules, modules: 0}, {
+	const totalBar = multiBar.create(school_codes.length, 0, {total_modules: totalModules, modules: 0}, {
 		format: "  {bar} │ {value}/{total} schools, {modules} modules ({duration_formatted})"
 	});
 
-	for (const school_code of /*shuffleArray(*/UK_SCHOOL_CODES/*)*/) {
+	for (const school_code of school_codes) {
 		const myModuleRowIds = moduleRowIDs[school_code];
 		for (const range of split(myModuleRowIds.length, 20)) {
 			await cluster.queue({
@@ -252,6 +262,7 @@ let modules = 0;
 				multiBar: multiBar,
 				totalBar: totalBar,
 				school_code: school_code,
+				campus: campus,
 				myRowIDs: myModuleRowIds.slice(range[0], range[1] + 1)
 			}, downloadModulesTask);
 		}
