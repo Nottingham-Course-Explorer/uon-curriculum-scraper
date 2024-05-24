@@ -160,10 +160,10 @@ const downloadModulesTask = async ({page, data}) => {
                           crawl_url, crawl_time, campus, row_id_TEMP)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
-		const info = stmt.run(module.Code, module.Title, module.Year, module.Credits, module.Level, module.School, module.Conveners, module.Semesters,
+		stmt.run(module.Code, module.Title, module.Year, module.Credits, module.Level, module.School, module.Conveners, module.Semesters,
 			module.Summary, module.Classes, module.ClassesInfo, module.Assessment, module.AssessmentInfo, module.TargetStudents, module.EducationalAims, module.AdditionalRequirements, module.LearningOutcomes,
 			module.CrawlURL, module.CrawlTime, data.campus, data.school_code + id);
-		/*if (info.changes > 0) {*/
+
 		data.myBar.increment();
 		modules++;
 		data.totalBar.update({modules: modules});
