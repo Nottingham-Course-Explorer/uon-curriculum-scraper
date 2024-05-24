@@ -157,7 +157,7 @@ const downloadModulesTask = async ({page, data}) => {
             OR IGNORE
             INTO modules (code, title, year, credits, level, school, conveners, semesters,
             			  summary, classes, classes_info, assessment, assessment_info, target_students, educational_aims, additional_requirements, learning_outcomes,
-                          crawl_url, crawl_time, campus, row_id_TEMP)
+                          crawl_url, crawl_time, campus, row_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`);
 		stmt.run(module.Code, module.Title, module.Year, module.Credits, module.Level, module.School, module.Conveners, module.Semesters,

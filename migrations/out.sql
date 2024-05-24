@@ -1,0 +1,1 @@
+alter table modules drop row_id;

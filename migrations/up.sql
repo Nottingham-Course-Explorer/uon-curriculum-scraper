@@ -1,7 +1,7 @@
 create table modules
 (
-    campus                  text             NOT NULL,
     code                    text PRIMARY KEY NOT NULL,
+    campus                  text             NOT NULL,
     title                   text             NOT NULL,
     year                    text             NOT NULL,
     credits                 int              NOT NULL,
@@ -18,8 +18,7 @@ create table modules
     assessment              text,
     assessment_info         text,
     conveners               text             NOT NULL,
-    convener_usernames      text,
-    row_id_TEMP             text,
+    row_id                  text,
 
     crawl_url               text             NOT NULL,
     crawl_time              int              NOT NULL
