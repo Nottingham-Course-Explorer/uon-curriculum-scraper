@@ -1,0 +1,19 @@
+export const TITLE = "#UN_PLN_EXT2_WRK_PTS_LIST_TITLE";
+export const YEAR = "#UN_PLN_EXT2_WRK_ACAD_YEAR";
+export const CODE = "#UN_PLN_EXT2_WRK_SUBJECT_DESCR";
+export const CREDITS = "#UN_PLN_EXT2_WRK_UNITS_MINIMUM";
+export const LEVEL = "#UN_PLN_EXT2_WRK_UN_LEVEL";
+export const SCHOOL = "#UN_PLN_EXT2_WRK_DESCRFORMAL";
+export const CONVENERS = "#UN_PLN_EXT2_WRK_NAME_DISPLAYS_AS";
+export const SEMESTERS = "#UN_PLN_EXT2_WRK_UN_TRIGGER_NAMES";
+export const TARGET_STUDENTS = "#win0divUN_PLN_EXT2_WRK_HTMLAREA10 .ps-htmlarea";
+
+export const SUMMARY = "#win0divUN_PLN_EXT2_WRK_HTMLAREA11 .ps-htmlarea";
+export const EDUCATIONAL_AIMS = "#win0divUN_PLN_EXT2_WRK_HTMLAREA12 .ps-htmlarea";
+export const CO_REQUISITES = "#win0divUN_COCORQ9_TBL\\$grid\\$0 .ps_grid-cell:not(.ptgrid-rownumber)";
+export const ADDITIONAL_REQUIREMENTS = "#win0divUN_PLN_EXT2_WRK_IB_REQSEND .ps-htmlarea";
+export const CLASSES = "#win0divUN_PLN_EXT2_WRK_ACA_FREQ .ps_grid-cell:not(.ptgrid-rownumber)";
+export const CLASSES_INFO = "#win0divUN_PLN_EXT2_WRK_UN_ACTIVITY_INFO .ps-htmlarea"
+export const ASSESSMENT = "#win0divUN_CRS_ASAI_TBL\\$grid\\$0 .ps_grid-cell:not(.ptgrid-rownumber)";
+export const ASSESSMENT_INFO = "#win0divUN_PLN_EXT2_WRK_UN_DESCRFORMAL .ps-htmlarea";
+export const LEARNING_OUTCOMES = "#UN_PLN_EXT2_WRK_UN_LEARN_OUTCOME";
