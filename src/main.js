@@ -95,7 +95,7 @@ const taskDownloadModules = async ({page, data}) => {
 			await selectTable(selectors.CLASSES),
 			await selectAndEvaluate(selectors.CLASSES_INFO, textContent),
 			await selectTable(selectors.ASSESSMENT),
-			await selectAndEvaluate(selectors.ASSESSMENT_INFO),
+			await selectAndEvaluate(selectors.ASSESSMENT_INFO, textContent),
 			await selectAndEvaluate(selectors.CONVENERS, commaSeparatedContent),
 
 			page.url(),
@@ -168,8 +168,8 @@ cluster.on('taskerror', (err, data, willRetry) => {
 
 consola.start("Indexing schools...");
 await cluster.queue(campus_url, taskIndexSchools);
-moduleRowIDs = Object.fromEntries(school_codes.map(x => [x, undefined]));
 await cluster.idle();
+moduleRowIDs = Object.fromEntries(school_codes.map(x => [x, undefined]));
 
 consola.start("Indexing modules...");
 const collectionTotalBar = new cliProgress.SingleBar({
