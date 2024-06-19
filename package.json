@@ -16,7 +16,7 @@
     "consola": "^3.2.3",
     "moment": "^2.30.1",
     "pino": "^9.0.0",
-    "puppeteer": "^22.7.0",
+    "puppeteer": "^22.11.2",
     "puppeteer-cluster-ntaulbut": "^0.24.1"
   },
   "devDependencies": {
