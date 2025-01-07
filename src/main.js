@@ -125,16 +125,18 @@ function moduleListURL(year, campus_code, school_code) {
 
 const HALF_HOUR_IN_MILLISECONDS = 1_800_000;
 
-const db = new Database(process.env.UON_MODULES_DB);
+const db_filename = await consola.prompt("Database filename:", {type: "text"});
+
+const db = new Database(db_filename);
 db.pragma("journal_mode = WAL");
 
-const transport = pino.transport({
+const logger_transport = pino.transport({
 	target: "pino/file",
 	options: {destination: ".log"}
 });
-const logger = pino(transport);
+const logger = pino(logger_transport);
 
-consola.info(`Using database ${process.env.UON_MODULES_DB}`);
+consola.info(`Using database ${db_filename}`);
 const workers = await consola.prompt("Number of workers:", {type: "text"});
 consola.start(`Scraping with ${workers} workers...`);
 

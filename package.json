@@ -1,25 +1,26 @@
 {
-  "name": "uon-curriculum-scraper",
-  "type": "module",
-  "version": "1.0.0",
-  "description": "",
-  "main": "src/main.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "better-sqlite3": "^9.6.0",
-    "cli-progress": "^3.12.0",
-    "consola": "^3.2.3",
-    "moment": "^2.30.1",
-    "pino": "^9.0.0",
-    "puppeteer": "^22.7.0",
-    "puppeteer-cluster-ntaulbut": "^0.24.1"
-  },
-  "devDependencies": {
-    "pino-dev": "^4.0.3"
-  }
+	"name": "uon-curriculum-scraper",
+	"type": "module",
+	"version": "1.0.0",
+	"description": "",
+	"main": "src/main.js",
+	"scripts": {
+		"test": "echo \"Error: no test specified\" && exit 1",
+		"scrape": "node src/main.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"better-sqlite3": "^9.6.0",
+		"cli-progress": "^3.12.0",
+		"consola": "^3.2.3",
+		"moment": "^2.30.1",
+		"pino": "^9.0.0",
+		"puppeteer": "^22.7.0",
+		"puppeteer-cluster-ntaulbut": "^0.24.1"
+	},
+	"devDependencies": {
+		"pino-dev": "^4.0.3"
+	}
 }

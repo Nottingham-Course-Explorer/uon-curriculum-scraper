@@ -1,4 +1,4 @@
-create table modules
+create table if not exists modules
 (
     code                    text PRIMARY KEY NOT NULL,
     campus                  text             NOT NULL,
